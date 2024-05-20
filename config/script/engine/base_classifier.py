@@ -15,6 +15,8 @@ from .util import write_config
 
 
 def get_base_classifier():
+    # Layer Normalization
+    # Set classifier for each model
     norm = 'LN'
 
     prefix = 'gru_c'

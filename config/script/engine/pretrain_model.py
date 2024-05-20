@@ -18,6 +18,8 @@ from .base_setting import get_classifier_setting
 from .base_setting import get_train_setting
 from .util import write_config
 
+# Configure encoder settings according to the pre-training method and create a config dict
+# That config file is used to generate the pretrained model
 
 def _get_pretrain_setting(short_name, setting_fun, setting_str,
                           pretrain_setting):
@@ -75,6 +77,9 @@ def _get_pretrain_setting(short_name, setting_fun, setting_str,
     config_id += 1
     write_config(config_dict, config_path)
 
+
+# Config file for classifier
+# Classification: Train the model for a specific task by fetching the weights of a pre-trained model
 
 def _get_classifier_setting(short_name, setting_fun, setting_str,
                             pretrain_setting):
