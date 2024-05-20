@@ -1,1 +1,9 @@
+# Ignore model config files
 /config/file
+
+# Ignore __pycache__ directories
+__pycache__/
+
+# Ignore Python bytecode files
+*.pyc
+*.pyo
