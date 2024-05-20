@@ -1,3 +1,7 @@
+# Finding Optimal Head on Foundation Model for Time-Series Classification
+
+Extended research of 'Toward a Foundation Model for Time Series Data, CIKM'23'
+
 ## Environment
 The code has only been tested with the environment list below:
 * python=3.8.13
@@ -5,6 +9,35 @@ The code has only been tested with the environment list below:
 * torch=1.10.2+cu102
 * tslearn=0.5.2
 * scipy=1.6.2
+
+```sh
+conda install numpy=1.19.5
+conda install scipy=1.6.2
+pip install torch==1.10.2+cu102 -f https://download.pytorch.org/whl/cu102/torch_stable.html
+conda install -c conda-forge tslearn=0.5.2
+
+```
+
+## Verify the installed version
+
+```sh
+# Check Python version
+python --version
+
+# Check numpy version
+python -c "import numpy; print('numpy:', numpy.__version__)"
+
+# Check torch version
+python -c "import torch; print('torch:', torch.__version__)"
+
+# Check tslearn version
+python -c "import tslearn; print('tslearn:', tslearn.__version__)"
+
+# Check scipy version
+python -c "import scipy; print('scipy:', scipy.__version__)"
+
+```
+
 
 ## Procedure
 Please follow the steps below to reproduce the experiments.
