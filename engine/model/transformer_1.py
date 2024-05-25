@@ -116,6 +116,47 @@ class Transformer(nn.Module):
         if self.is_projector:
             for param in self.projector.parameters():
                 param.requires_grad = True
+
+    # Global temporal pooling
+    def gtpool(self, h, op):
+        if op == 'avg':
+            return torch.mean(h, dim=2)
+        if op == 'sum':
+            return torch.sum(h, dim=2)
+        elif op == 'max':
+            return torch.max(h, dim=2)[0]
+
+    # Static temporal pooling
+    def stpool(self, h, op):
+        segment_sizes = [int(h.shape[2]/self.num_segments)] * self.num_segments
+        segment_sizes[-1] += h.shape[2] - sum(segment_sizes)
+
+        hs = torch.split(h, segment_sizes, dim=2)
+        if op == 'avg':
+            hs = [h_.mean(dim=2, keepdim=True) for h_ in hs]
+        if op == 'sum':
+            hs = [h_.sum(dim=2, keepdim=True) for h_ in hs]
+        elif op == 'max':    
+            hs = [h_.max(dim=2)[0].unsqueeze(dim=2) for h_ in hs]
+        hs = torch.cat(hs, dim=2)
+        return hs
+
+    # Dynamic temporal pooling
+    def dtpool(self, h, op):
+        A = self.softdtw.align(self.protos.repeat(h.shape[0], 1, 1), h)
+        
+        if op == 'avg':
+            A /= A.sum(dim=2, keepdim=True)
+            h = torch.bmm(h, A.transpose(1, 2))
+        elif op == 'sum':
+            h = h.unsqueeze(dim=2) * A.unsqueeze(dim=1)
+            h = h.sum(dim=3)
+        elif op == 'max':
+            h = h.unsqueeze(dim=2) * A.unsqueeze(dim=1)
+            h = h.max(dim=3)[0]
+        return h
+
+
     def forward(self, ts, normalize=True, to_numpy=False, pool_op='avg', pool_type='gt'):
         device = self.dummy.device
         is_projector = self.is_projector
@@ -141,7 +182,22 @@ class Transformer(nn.Module):
         ts_emb = torch.transpose(ts_emb, 1, 2)
 
         ts_emb = self.transformer(ts_emb)
-        ts_emb = ts_emb[:, 0, :]
+
+        # Pooling layer
+        if pool_type == 'gt':
+            ts_emb = self.gtpool(ts_emb, pool_op)
+        elif pool_type == 'st':
+            ts_emb = self.stpool(ts_emb, pool_op)
+        elif pool_type == 'dt':
+            ts_emb = self.dtpool(ts_emb, pool_op)
+        else:
+            raise ValueError(f"Unsupported pool_type: {pool_type}")
+
+        # Flatten the output
+        # ts_emb = ts_emb[:, 0, :]
+        ts_emb = ts_emb.view(ts_emb.size(0), -1)
+        
+        # Linear projection
         ts_emb = self.out_net(ts_emb)
 
         if is_projector:
@@ -152,10 +208,10 @@ class Transformer(nn.Module):
         else:
             return ts_emb
 
-    def encode(self, ts, normalize=True, to_numpy=False):
+    def encode(self, ts, normalize=True, to_numpy=False, pool_op='avg', pool_type='gt'):
         return self.forward(ts, normalize=normalize, to_numpy=to_numpy)
 
-    def encode_seq(self, ts, normalize=True, to_numpy=False):
+    def encode_seq(self, ts, normalize=True, to_numpy=False, pool_op='avg', pool_type='gt'):
         device = self.dummy.device
         is_projector = self.is_projector
         is_pos = self.is_pos
