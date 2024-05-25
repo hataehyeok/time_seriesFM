@@ -76,7 +76,6 @@ class Transformer(nn.Module):
             name='start_token',
             param=self.start_token)
 
-        # Change encoder's output dimention
         self.out_net = nn.Linear(n_dim, out_dim)
         self.project_norm = project_norm
         if is_projector:
@@ -182,6 +181,10 @@ class Transformer(nn.Module):
         ts_emb = torch.transpose(ts_emb, 1, 2)
 
         ts_emb = self.transformer(ts_emb)
+        
+        # Previous  : backbone -> flatten -> linear projection
+        # Present   : backbone -> pooling -> flatten -> linear projection
+
 
         # Pooling layer
         if pool_type == 'gt':

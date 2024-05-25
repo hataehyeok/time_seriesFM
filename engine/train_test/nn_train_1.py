@@ -24,7 +24,7 @@ def nn_train(dataset, model, model_path,
     model.to(device)
     model.train()
 
-    # model.freeze_backbone()
+    model.freeze_backbone()
 
     lr = float(train_config['lr'])
     optimizer = torch.optim.AdamW(
