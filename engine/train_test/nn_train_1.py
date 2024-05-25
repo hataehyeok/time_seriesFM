@@ -15,7 +15,7 @@ from .util import _normalize_dataset
 
 
 def nn_train(dataset, model, model_path,
-             train_config, device):
+             train_config, device, is_freeze=False):
     data = dataset['data_train']
     label = dataset['label_train']
 
@@ -24,7 +24,25 @@ def nn_train(dataset, model, model_path,
     model.to(device)
     model.train()
 
-    model.freeze_backbone()
+    # import pdb; pdb.set_trace()
+
+    # for name, param in model.named_parameters():
+    #     print(f'name:{name}')
+    #     print(type(param))
+    #     print(f'param.shape:{param.shape}')
+    #     print(f'param.requries_grad:{param.requires_grad}')
+    #     print('=====')
+    # import pdb; pdb.set_trace()
+    if (is_freeze):
+        model.encoder.encoder.freeze_backbone()
+    
+    # for name, param in model.named_parameters():
+    #     print(f'name:{name}')
+    #     print(type(param))
+    #     print(f'param.shape:{param.shape}')
+    #     print(f'param.requries_grad:{param.requires_grad}')
+    #     print('=====')
+    # import pdb; pdb.set_trace()
 
     lr = float(train_config['lr'])
     optimizer = torch.optim.AdamW(
