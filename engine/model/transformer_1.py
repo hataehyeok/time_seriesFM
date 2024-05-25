@@ -116,6 +116,7 @@ class Transformer(nn.Module):
         if self.is_projector:
             for param in self.projector.parameters():
                 param.requires_grad = True
+    def forward(self, ts, normalize=True, to_numpy=False, pool_op='avg', pool_type='gt'):
         device = self.dummy.device
         is_projector = self.is_projector
         is_pos = self.is_pos
