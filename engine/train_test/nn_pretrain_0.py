@@ -66,11 +66,14 @@ def _simclr_encoder_forward(model, idx_batch, data):
 
 def _timeclr_encoder_forward(model, idx_batch, data):
     data_batch = data[idx_batch, :, :]
+    # First augmented embedding
     ts_emb_aug_0 = model.forward(
         data_batch, normalize=False, to_numpy=False, is_augment=True)
+    # Second augmented embedding
     ts_emb_aug_1 = model.forward(
         data_batch, normalize=False, to_numpy=False, is_augment=True)
     loss_fun = NTXentLossPoly()
+    # Contrastive loss
     loss = loss_fun(ts_emb_aug_0, ts_emb_aug_1)
     return loss
 
