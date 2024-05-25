@@ -14,7 +14,7 @@ from .util import _normalize_t
 class Transformer(nn.Module):
     def __init__(self, in_dim=1, out_dim=128, n_layer=8, n_dim=64, n_head=8,
                  norm_first=False, is_pos=True, is_projector=True,
-                 project_norm=None, dropout=0.0):
+                 project_norm=None, dropout=0.0, aggregation_mode='class_token', pooling_mode='gt'):
         r"""
         Transformer-based time series encoder
 
@@ -58,6 +58,9 @@ class Transformer(nn.Module):
         self.is_pos = is_pos
         self.max_len = 0
         self.dropout = dropout
+        self.num_segments = 8
+        self.aggregation_mode = aggregation_mode
+        self.pooling_mode = pooling_mode
 
         self.in_net = nn.Conv1d(
             in_dim, n_dim, 7, stride=2, padding=3, dilation=1)
@@ -70,12 +73,15 @@ class Transformer(nn.Module):
                 norm_first=norm_first)
         self.transformer = nn.Sequential(transformer)
 
+        # Class token initialization
         self.start_token = nn.Parameter(
             torch.randn(1, n_dim, 1))
         self.register_parameter(
             name='start_token',
             param=self.start_token)
 
+        self.linear_st = nn.Linear(self.num_segments * n_dim, n_dim)
+        self.linear = nn.Linear(16448, n_dim)
         self.out_net = nn.Linear(n_dim, out_dim)
         self.project_norm = project_norm
         if is_projector:
@@ -115,32 +121,34 @@ class Transformer(nn.Module):
         if self.is_projector:
             for param in self.projector.parameters():
                 param.requires_grad = True
+        self.start_token.requires_grad = True
 
     # Global temporal pooling
     def gtpool(self, h, op):
         if op == 'avg':
-            return torch.mean(h, dim=2)
+            return torch.mean(h, dim=1)
         if op == 'sum':
-            return torch.sum(h, dim=2)
+            return torch.sum(h, dim=1)
         elif op == 'max':
-            return torch.max(h, dim=2)[0]
+            return torch.max(h, dim=1)[0]
 
     # Static temporal pooling
     def stpool(self, h, op):
-        segment_sizes = [int(h.shape[2]/self.num_segments)] * self.num_segments
-        segment_sizes[-1] += h.shape[2] - sum(segment_sizes)
+        segment_sizes = [int(h.shape[1]/self.num_segments)] * self.num_segments
+        segment_sizes[-1] += h.shape[1] - sum(segment_sizes)
 
-        hs = torch.split(h, segment_sizes, dim=2)
+        hs = torch.split(h, segment_sizes, dim=1)
         if op == 'avg':
-            hs = [h_.mean(dim=2, keepdim=True) for h_ in hs]
+            hs = [h_.mean(dim=1, keepdim=True) for h_ in hs]
         if op == 'sum':
-            hs = [h_.sum(dim=2, keepdim=True) for h_ in hs]
+            hs = [h_.sum(dim=1, keepdim=True) for h_ in hs]
         elif op == 'max':    
-            hs = [h_.max(dim=2)[0].unsqueeze(dim=2) for h_ in hs]
-        hs = torch.cat(hs, dim=2)
+            hs = [h_.max(dim=1)[0].unsqueeze(dim=1) for h_ in hs]
+        hs = torch.cat(hs, dim=1)
         return hs
 
     # Dynamic temporal pooling
+    # todo: proto 학습하고 가져와야함
     def dtpool(self, h, op):
         A = self.softdtw.align(self.protos.repeat(h.shape[0], 1, 1), h)
         
@@ -156,7 +164,7 @@ class Transformer(nn.Module):
         return h
 
 
-    def forward(self, ts, normalize=True, to_numpy=False, pool_op='avg', pool_type='gt'):
+    def forward(self, ts, normalize=True, to_numpy=False, pool_op='avg'):
         device = self.dummy.device
         is_projector = self.is_projector
         is_pos = self.is_pos
@@ -176,29 +184,34 @@ class Transformer(nn.Module):
                 self.pos_net.to(device)
             ts_emb = self.pos_net(ts_emb)
 
+        # Add class token to in front of embedding sequence
         start_tokens = self.start_token.expand(ts_emb.size()[0], -1, -1)
         ts_emb = torch.cat((start_tokens, ts_emb, ), dim=2)
         ts_emb = torch.transpose(ts_emb, 1, 2)
 
         ts_emb = self.transformer(ts_emb)
+        # import pdb;pdb.set_trace()
         
         # Previous  : backbone -> flatten -> linear projection
         # Present   : backbone -> pooling -> flatten -> linear projection
 
-
-        # Pooling layer
-        if pool_type == 'gt':
-            ts_emb = self.gtpool(ts_emb, pool_op)
-        elif pool_type == 'st':
-            ts_emb = self.stpool(ts_emb, pool_op)
-        elif pool_type == 'dt':
-            ts_emb = self.dtpool(ts_emb, pool_op)
-        else:
-            raise ValueError(f"Unsupported pool_type: {pool_type}")
-
-        # Flatten the output
-        # ts_emb = ts_emb[:, 0, :]
-        ts_emb = ts_emb.view(ts_emb.size(0), -1)
+        if (self.aggregation_mode == 'class_token'):
+            ts_emb = ts_emb[:, 0, :]      # ts_emb = ts_emb.view(ts_emb.size(0), -1)
+        elif (self.aggregation_mode == 'flatten'):
+            ts_emb = ts_emb.reshape(ts_emb.size(0), -1)
+            ts_emb = self.linear(ts_emb)
+        elif (self.aggregation_mode == 'pooling'):
+            if self.pooling_mode == 'gt':
+                ts_emb = self.gtpool(ts_emb, pool_op)
+            elif self.pooling_mode == 'st':
+                ts_emb = self.stpool(ts_emb, pool_op)
+                ts_emb = ts_emb.reshape(ts_emb.size(0), -1)
+                ts_emb = self.linear_st(ts_emb)
+            elif self.pooling_mode == 'dt':
+                ts_emb = self.dtpool(ts_emb, pool_op)
+                ts_emb = ts_emb.reshape(ts_emb.size(0), -1)
+            else:
+                raise ValueError(f"Unsupported pool_type: {self.pooling_mode}")
         
         # Linear projection
         ts_emb = self.out_net(ts_emb)
