@@ -26,16 +26,20 @@ def main_wrapper():
     parser.add_argument('--method_name')
     parser.add_argument('--dataset_order',
                         type=int, choices=[-1, 0, 1, ], default=1)
+    parser.add_argument('--is_freeze', type=lambda s:s.lower() in ['true','1'],
+                        default=False, help='is_freeze (default: False)')
+    parser.add_argument('--aggregation_mode', type=str, default='class_token')
+    parser.add_argument('--pooling_mode', type=str, default='gt')
 
     args = parser.parse_args()
     data_name = args.data_name
     method_name = args.method_name
     dataset_order = args.dataset_order
 
-    main(data_name, method_name, dataset_order)
+    main(data_name, method_name, dataset_order, args.is_freeze, args.aggregation_mode, args.pooling_mode)
 
 
-def main(data_config_name, method_name, dataset_order):
+def main(data_config_name, method_name, dataset_order, is_freeze, aggregation_mode, pooling_mode):
     data_config = os.path.join(
         '.', 'config', 'file', f'{data_config_name}.config')
     data_config = parse_config(data_config)
@@ -71,12 +75,17 @@ def main(data_config_name, method_name, dataset_order):
         path = pathlib.Path(model_dir)
         path.mkdir(parents=True, exist_ok=True)
 
+        freeze_str = 'freeze' if is_freeze else 'nofreeze'
+        agg_mode_str = f'{aggregation_mode}'
+        pooling_mode_str = f'{pooling_mode}'
+
         result_path = os.path.join(
-            result_dir, f'{method_name}_{fmt_str}.npz')
+            result_dir, f'{method_name}_{freeze_str}_{agg_mode_str}_{pooling_mode_str}_{fmt_str}.npz')
         result_agg_path = os.path.join(
-            result_agg_dir, f'{method_name}.npz')
+            result_agg_dir, f'{method_name}_{freeze_str}_{agg_mode_str}_{pooling_mode_str}.npz')
         model_path = os.path.join(
-            model_dir, f'{method_name}_{fmt_str}.npz')
+            model_dir, f'{method_name}_{freeze_str}_{agg_mode_str}_{pooling_mode_str}_{fmt_str}.npz')
+        
         if os.path.isfile(result_agg_path):
             continue
 
@@ -85,9 +94,9 @@ def main(data_config_name, method_name, dataset_order):
         method_config_['in_dim'] = dataset['n_dim']
         method_config_['n_class'] = dataset['n_class']
         method_config_['data_len'] = dataset['data_len']
-        model = get_model(method_config_)
+        model = get_model(method_config_, aggregation_mode, pooling_mode)
         nn_train(dataset, model, model_path,
-                 method_config_['train'], device)
+                 method_config_['train'], device, is_freeze=is_freeze)
         nn_eval(dataset, model, model_path,
                 result_path, method_config_['train'], device)
         get_agg_result(result_path, result_agg_path,

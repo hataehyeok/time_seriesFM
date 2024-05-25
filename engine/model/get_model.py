@@ -33,7 +33,8 @@ def load_pretrain(model_config, encoder):
 
     pre_train_model = model_config['pre_train_model']
     pkl = torch.load(pre_train_model, map_location='cpu')
-    encoder.load_state_dict(pkl['model_state_dict'])
+    # encoder.load_state_dict(pkl['model_state_dict'])
+    encoder.load_state_dict(pkl['model_state_dict'], strict=False)
     return encoder
 
 
@@ -74,7 +75,7 @@ def get_resnet1d(model_config):
     return encoder
 
 
-def get_transformer(model_config):
+def get_transformer(model_config, aggregation_mode, pooling_mode):
     in_dim = int(model_config['encoder']['in_dim'])
     out_dim = int(model_config['encoder']['out_dim'])
     n_layer = int(model_config['encoder']['n_layer'])
@@ -93,7 +94,7 @@ def get_transformer(model_config):
         in_dim=in_dim, out_dim=out_dim, n_layer=n_layer,
         n_dim=n_dim, n_head=n_head, norm_first=norm_first,
         is_pos=is_pos, is_projector=is_projector,
-        project_norm=project_norm, dropout=dropout)
+        project_norm=project_norm, dropout=dropout, aggregation_mode=aggregation_mode, pooling_mode=pooling_mode)
     encoder = load_pretrain(model_config['encoder'], encoder)
     return encoder
 
@@ -159,7 +160,7 @@ def get_classifier(model_config, encoder):
     return model
 
 
-def get_model(model_config):
+def get_model(model_config, aggregation_mode, pooling_mode):
     model_name = model_config['model']['model_name']
     print(f'get model for {model_name}')
 
@@ -174,7 +175,7 @@ def get_model(model_config):
         encoder = get_resnet1d(model_config)
     elif 'transform' in model_name:
         print('  get transform')
-        encoder = get_transformer(model_config)
+        encoder = get_transformer(model_config, aggregation_mode, pooling_mode)
     else:
         raise Exception(f'unknown encoder name: {model_name}')
 
