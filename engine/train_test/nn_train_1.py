@@ -24,6 +24,8 @@ def nn_train(dataset, model, model_path,
     model.to(device)
     model.train()
 
+    # model.freeze_backbone()
+
     lr = float(train_config['lr'])
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=lr)
@@ -38,8 +40,10 @@ def nn_train(dataset, model, model_path,
     ckpts = _get_checkpoint(n_ckpt, n_epoch)
     start_epoch = _get_start_epoch(model_path, ckpts)
 
+    # For saving loss and time
     loss_train = np.zeros(n_epoch)
     toc_train = np.zeros(n_epoch)
+
     for i in range(start_epoch, n_epoch):
         if start_epoch != 0 and i == start_epoch:
             print(f'resume training from epoch {i + 1:d}')

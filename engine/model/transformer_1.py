@@ -76,6 +76,7 @@ class Transformer(nn.Module):
             name='start_token',
             param=self.start_token)
 
+        # Change encoder's output dimention
         self.out_net = nn.Linear(n_dim, out_dim)
         self.project_norm = project_norm
         if is_projector:
@@ -106,7 +107,15 @@ class Transformer(nn.Module):
                 )
         self.dummy = nn.Parameter(torch.empty(0))
 
-    def forward(self, ts, normalize=True, to_numpy=False):
+    # Freeze pre-trained backbone
+    def freeze_backbone(self):
+        for param in self.parameters():
+            param.requires_grad = False
+        for param in self.out_net.parameters():
+            param.requires_grad = True
+        if self.is_projector:
+            for param in self.projector.parameters():
+                param.requires_grad = True
         device = self.dummy.device
         is_projector = self.is_projector
         is_pos = self.is_pos
