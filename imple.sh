@@ -4,7 +4,8 @@
 run_command() {
     local gpu_ids=$1
     local command=$2
-    CUDA_VISIBLE_DEVICES=${gpu_ids} nohup ${command} &
+    local log_file=$3
+    CUDA_VISIBLE_DEVICES=${gpu_ids} nohup ${command} > "${log_file}" 2>&1 &
 }
 
 # Commands to run
@@ -25,7 +26,8 @@ gpu_ids=("0" "1" "2")
 # Run commands in parallel
 for i in ${!commands[@]}; do
     gpu_index=$((i % 3))
-    run_command ${gpu_ids[$gpu_index]} "${commands[$i]}"
+    log_file="log_${i}.txt"
+    run_command ${gpu_ids[$gpu_index]} "${commands[$i]}" "${log_file}"
 done
 
 # Wait for all background jobs to finish
