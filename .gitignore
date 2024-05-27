@@ -11,6 +11,7 @@ __pycache__/
 # Ignore unnecessary files
 /result
 /result_agg
+/result_agg_1
 /model/*
 !/model/ucr_00_pretrain/
 
