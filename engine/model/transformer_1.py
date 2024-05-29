@@ -82,46 +82,13 @@ class Transformer(nn.Module):
 
         self.linear_st = nn.Linear(self.num_segments * n_dim, n_dim)
         self.linear = nn.Linear(16448, n_dim)
-        # self.out_net = nn.Linear(n_dim, out_dim)
         self.out_linear = nn.Linear(n_dim, out_dim)
-        # self.project_norm = project_norm
-        # if is_projector:
-        #     if project_norm == 'BN':
-        #         self.projector = nn.Sequential(
-        #             nn.BatchNorm1d(out_dim),
-        #             nn.ReLU(),
-        #             nn.Linear(out_dim, out_dim * 2),
-        #             nn.BatchNorm1d(out_dim * 2),
-        #             nn.ReLU(),
-        #             nn.Linear(out_dim * 2, out_dim)
-        #         )
-        #     elif project_norm == 'LN':
-        #         self.projector = nn.Sequential(
-        #             nn.ReLU(),
-        #             nn.LayerNorm(out_dim),
-        #             nn.Linear(out_dim, out_dim * 2),
-        #             nn.ReLU(),
-        #             nn.LayerNorm(out_dim * 2),
-        #             nn.Linear(out_dim * 2, out_dim)
-        #         )
-        #     else:
-        #         self.projector = nn.Sequential(
-        #             nn.ReLU(),
-        #             nn.Linear(out_dim, out_dim * 2),
-        #             nn.ReLU(),
-        #             nn.Linear(out_dim * 2, out_dim)
-        #         )
         self.dummy = nn.Parameter(torch.empty(0))
 
     # Freeze pre-trained backbone
     def freeze_backbone(self):
         for param in self.parameters():
             param.requires_grad = False
-        # for param in self.out_net.parameters():
-        #     param.requires_grad = True
-        # if self.is_projector:
-        #     for param in self.projector.parameters():
-        #         param.requires_grad = True
         self.out_linear.requires_grad = True
         self.start_token.requires_grad = True
 
@@ -192,10 +159,6 @@ class Transformer(nn.Module):
         ts_emb = torch.transpose(ts_emb, 1, 2)
 
         ts_emb = self.transformer(ts_emb)
-        # import pdb;pdb.set_trace()
-        
-        # Previous  : backbone -> flatten -> linear projection
-        # Present   : backbone -> pooling -> flatten -> linear projection
 
         if (self.aggregation_mode == 'class_token'):
             ts_emb = ts_emb[:, 0, :]
@@ -216,11 +179,7 @@ class Transformer(nn.Module):
                 raise ValueError(f"Unsupported pool_type: {self.pooling_mode}")
         
         # Linear projection
-        # ts_emb = self.out_net(ts_emb)
         ts_emb = self.out_linear(ts_emb)
-
-        # if is_projector:
-        #     ts_emb = self.projector(ts_emb)
 
         if to_numpy:
             return ts_emb.cpu().detach().numpy()
@@ -229,60 +188,6 @@ class Transformer(nn.Module):
 
     def encode(self, ts, normalize=True, to_numpy=False, pool_op='avg', pool_type='gt'):
         return self.forward(ts, normalize=normalize, to_numpy=to_numpy)
-
-    # def encode_seq(self, ts, normalize=True, to_numpy=False, pool_op='avg', pool_type='gt'):
-    #     device = self.dummy.device
-    #     is_projector = self.is_projector
-    #     is_pos = self.is_pos
-
-    #     ts = _normalize_t(ts, normalize)
-    #     ts = ts.to(device, dtype=torch.float32)
-
-    #     ts_emb = self.in_net(ts)
-    #     if is_pos:
-    #         n_dim = self.n_dim
-    #         dropout = self.dropout
-    #         ts_len = ts_emb.size()[2]
-    #         if ts_len > self.max_len:
-    #             self.max_len = ts_len
-    #             self.pos_net = PositionalEncoding(
-    #                 n_dim, ts_len, dropout=dropout)
-    #             self.pos_net.to(device)
-    #         ts_emb = self.pos_net(ts_emb)
-
-    #     start_tokens = self.start_token.expand(ts_emb.size()[0], -1, -1)
-    #     ts_emb = torch.cat((start_tokens, ts_emb, ), dim=2)
-    #     ts_emb = torch.transpose(ts_emb, 1, 2)
-
-    #     ts_emb = self.transformer(ts_emb)
-    #     ts_emb = self.out_net(ts_emb)
-    #     if is_projector:
-    #         project_norm = self.project_norm
-    #         if project_norm == 'BN':
-    #             layers = [module for module in is_projector.modules()]
-    #             ts_emb = torch.transpose(ts_emb, 1, 2)
-    #             ts_emb = layers[1](ts_emb)
-    #             ts_emb = torch.transpose(ts_emb, 1, 2)
-    #             ts_emb = layers[2](ts_emb)
-    #             ts_emb = layers[3](ts_emb)
-    #             ts_emb = torch.transpose(ts_emb, 1, 2)
-    #             ts_emb = layers[4](ts_emb)
-    #             ts_emb = torch.transpose(ts_emb, 1, 2)
-    #             ts_emb = layers[5](ts_emb)
-    #             ts_emb = layers[6](ts_emb)
-    #         else:
-    #             ts_emb = self.projector(ts_emb)
-
-    #     ts_emb = ts_emb[:, 1:, :]
-    #     start_tokens = ts_emb[:, 0:1, :]
-    #     start_tokens = start_tokens.expand(-1, ts_emb.size()[1], -1)
-    #     ts_emb = ts_emb + start_tokens
-    #     ts_emb = torch.transpose(ts_emb, 1, 2)
-
-    #     if to_numpy:
-    #         return ts_emb.cpu().detach().numpy()
-    #     else:
-    #         return ts_emb
 
 
 class PositionalEncoding(nn.Module):
