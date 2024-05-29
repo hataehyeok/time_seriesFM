@@ -18,3 +18,6 @@ __pycache__/
 # Ignore log
 nohup.out
 log_*.txt
+
+# Ignore test result
+*.csv
