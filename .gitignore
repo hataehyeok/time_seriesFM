@@ -19,5 +19,6 @@ __pycache__/
 nohup.out
 log_*.txt
 
-# Ignore test result
+
 *.csv
+/engine/model/DTW-Pool
