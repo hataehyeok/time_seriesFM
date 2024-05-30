@@ -97,9 +97,29 @@ For high performance without large computations, the pre-trained backbone is fro
 - Model Architecture
   - Foundation model are composed with backbone and head
 
+  <center><img src="https://github.com/hataehyeok/time_seriesFM/assets/105369662/9e212373-d4a5-4d25-9bfa-9524fef23d02" width="60%" height="60%"/></center>
   
-
-
   - Transformer setting is fixed positional encoding, 4 encoder layer, 64 input size, output size and pre-trained by TimeCLR, which is contrastive learning pre-training method extends SimCLR.
   - Previous research use class token and ViT based time-series foundation model, which is trained when pre-training process
   - Output network, projector, classifier also trained on pre-training process
+
+### Experiments
+
+- Freeze Backbone
+  - Use transformer pre-trained by TimeCLR
+
+  <center><img src="https://github.com/hataehyeok/time_seriesFM/assets/105369662/485a6d99-c8f7-4583-9979-61893f0705db" width="40%" height="40%"/></center>
+
+  - Already pre-trained and time-series is aggregated with class token, therefore, experiments setting has advantage for class token
+
+### Conclusions
+
+- In the freeze case, the flatten method was overfitting even though it had the most parameters, and this was improved by pooling
+- Considering temporal information, class token and Static temporal pooling performed the best, which means these aggregate local pattern in time-series well
+- As expected, removing the head and attaching the head to the downstream task yielded better results, and class token alone had more limitations, such as overfitting
+- pre-trained head is not useful in downstream task because accuracy of separate pre-train head is more improved
+
+### Future Work
+
+- Experiment with other data sets that were not used in the pre-train to further study multi-domain and zero-shot reference
+- Research aggregation techniques that better detect temporal information
