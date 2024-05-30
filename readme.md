@@ -1,43 +1,16 @@
-# Finding Optimal Head on Foundation Model for Time-Series Classification
+# Finding Effective Aggregation on Foundation Model for Time-Series Classification
 
 Extended research of 'Toward a Foundation Model for Time Series Data, CIKM'23'
 
 ## Environment
 The code has only been tested with the environment list below:
-* python=3.8.13
-* numpy=1.19.5
-* torch=1.10.2+cu102
-* tslearn=0.5.2
-* scipy=1.6.2
-
-```sh
-conda install numpy=1.19.5
-conda install scipy=1.6.2
-pip install torch==1.10.2+cu102 -f https://download.pytorch.org/whl/cu102/torch_stable.html
-conda install -c conda-forge tslearn=0.5.2
-
-```
-
-## Verify the installed version
-
-```sh
-# Check Python version
-python --version
-
-# Check numpy version
-python -c "import numpy; print('numpy:', numpy.__version__)"
-
-# Check torch version
-python -c "import torch; print('torch:', torch.__version__)"
-
-# Check tslearn version
-python -c "import tslearn; print('tslearn:', tslearn.__version__)"
-
-# Check scipy version
-python -c "import scipy; print('scipy:', scipy.__version__)"
-
-```
-
+- python=3.8.13
+- numpy=1.19.5
+- torch=1.10.2+cu102
+- tslearn=0.5.2
+- scipy=1.6.2
+- numba
+- sktime
 
 ## Procedure
 Please follow the steps below to reproduce the experiments.
@@ -98,3 +71,35 @@ Please follow the steps below to reproduce the experiments.
     * ```python script_ucr_nn_0.py --method_name trf_tc_c_0000``` for transformer + TimeCLR (the proposed method)
 5. run ```python script_result_0.py``` to get the experiment results.
 
+
+## Research
+
+### Motivation
+
+Time-series classification on foundation model
+- Good performance in pre-trained domain, but model has difficulties in fine-tuning and overfitting
+- Due to lack of time-series data
+- Missing the temporal information and local pattern in classification
+
+### Key Idea
+
+Time-series data aggregation with temporal information
+- ViT(Class token, Representation vector)
+- Pooling(Static temporal pooling, Dynamic temporal pooling)
+For high performance without large computations, the pre-trained backbone is frozen and fine-tuning is only applied to the downstream task
+
+### Experiments Setting
+
+- Data
+  - UCR Time series Classification Archive
+  - Labelled time-series data for a variety of sources including medical, financial, biological, industrial, and environmental
+
+- Model Architecture
+  - Foundation model are composed with backbone and head
+
+  
+
+
+  - Transformer setting is fixed positional encoding, 4 encoder layer, 64 input size, output size and pre-trained by TimeCLR, which is contrastive learning pre-training method extends SimCLR.
+  - Previous research use class token and ViT based time-series foundation model, which is trained when pre-training process
+  - Output network, projector, classifier also trained on pre-training process
