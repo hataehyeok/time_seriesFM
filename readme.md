@@ -76,6 +76,8 @@ For high performance without large computations, the pre-trained backbone is fro
 
 ### Results
 
+**Dynamic temporal pooling is not optimal conditinos, which will have lower gamma value and segments number**
+
 <center><img src="https://github.com/hataehyeok/time_seriesFM/assets/105369662/3112678a-a527-45de-b3dc-2ac820c0ed61" width="50%" height="50%"/></center>
 <center><img src="https://github.com/hataehyeok/time_seriesFM/assets/105369662/8efa8062-9ac4-4a0f-a9cc-26e9bd12f528" width="50%" height="50%"/></center>
 
