@@ -29,11 +29,10 @@ class Classifier(nn.Module):
         self.classifier = nn.Sequential(layers)
 
     def forward(self, ts, normalize=True, to_numpy=False):
-        hidden = self.encoder.encode(
-            ts, normalize=normalize, to_numpy=False)
-        logit = self.classifier(hidden)
+        out, hidden = self.encoder.encode(ts, normalize=normalize, to_numpy=False)
+        logit = self.classifier(out)
         if to_numpy:
-            return logit.cpu().detach().numpy()
+            return logit.cpu().detach().numpy(), hidden.cpu().detach().numpy()
         else:
-            return logit
+            return logit, hidden
 

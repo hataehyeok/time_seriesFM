@@ -235,7 +235,7 @@ class _SoftAlignCUDA(Function):
                                                             cuda.as_cuda_array(R),
                                                             gamma.item(), bandwidth.item(), N, M, n_passes,
                                                             cuda.as_cuda_array(E))
-        return E[:, 1:N + 1, 1:M + 1]
+        return E[:, 1:N + 1, 1:M + 1].clone()
 
     @staticmethod
     def backward(ctx, grad_output):

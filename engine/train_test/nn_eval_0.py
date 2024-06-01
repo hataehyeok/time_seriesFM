@@ -28,8 +28,7 @@ def _get_predict(data, label, model, train_config):
             idx_end = n_data
 
         data_batch = data[idx_start:idx_end, :, :]
-        logit = model.forward(
-            data_batch, normalize=False, to_numpy=True)
+        logit, _ = model.forward(data_batch, normalize=False, to_numpy=True)
         predict[idx_start:idx_end] = np.argmax(logit, axis=1)
     predict_time = time.time() - tic
     acc = np.sum(predict == label) / n_data

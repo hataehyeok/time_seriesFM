@@ -54,7 +54,7 @@ def train(args, train_dataset, valid_dataset, test_dataset):
             ce_loss.backward(retain_graph=True)
             optim_h.step()
 
-            dtw_loss = model.compute_aligncost(h)
+            dtw_loss = model.encoder.encoder.compute_aligncost(h)
             optim_p.zero_grad()
             dtw_loss.backward(retain_graph=True)
             optim_p.step()

@@ -7,8 +7,10 @@
 import math
 import torch
 import torch.nn as nn
+import torch.nn.functional as f
 from collections import OrderedDict
 from .util import _normalize_t
+from .softdtw_cuda import SoftDTW
 
 
 class Transformer(nn.Module):
@@ -58,9 +60,12 @@ class Transformer(nn.Module):
         self.is_pos = is_pos
         self.max_len = 0
         self.dropout = dropout
-        self.num_segments = 8
+        # self.num_segments = 8
+        self.num_segments = 9
         self.aggregation_mode = aggregation_mode
         self.pooling_mode = pooling_mode
+        # 이거 인자로 전달받게 수정
+        self.softdtw = SoftDTW(use_cuda=True, gamma=1.0, cost_type='cosine', normalize=False)
 
         self.in_net = nn.Conv1d(
             in_dim, n_dim, 7, stride=2, padding=3, dilation=1)
@@ -83,14 +88,50 @@ class Transformer(nn.Module):
         self.linear_st = nn.Linear(self.num_segments * n_dim, n_dim)
         self.linear = nn.Linear(16448, n_dim)
         self.out_linear = nn.Linear(n_dim, out_dim)
+        
+        # define proto layer
+        # dimention 어떻게 세팅하지?
+        self.protos = nn.Parameter(torch.zeros(n_dim, self.num_segments), requires_grad=True)
         self.dummy = nn.Parameter(torch.empty(0))
 
+
+    def init_protos(self, data_loader):
+        for itr, batch in enumerate(data_loader):
+            data = batch['data'].cuda().float()
+            h = self.get_htensor(data)
+            pooled_h = self.stpool(h, 'avg').mean(dim=0)
+            pooled_h = pooled_h.transpose(0, 1)
+            self.protos.data += pooled_h
+        self.protos.data /= len(data_loader)
+    
+    # Getting Transformer layers and retuning hidden representation
+    def get_htensor(self, x):
+        x = x.float()
+        ts_emb = self.in_net(x)
+        if self.is_pos:
+            n_dim = self.n_dim
+            dropout = self.dropout
+            ts_len = ts_emb.size()[2]
+            if ts_len > self.max_len:
+                self.max_len = ts_len
+                self.pos_net = PositionalEncoding(n_dim, ts_len, dropout=dropout)
+                self.pos_net.to(ts_emb.device)
+            ts_emb = self.pos_net(ts_emb)
+
+        start_tokens = self.start_token.expand(ts_emb.size()[0], -1, -1)
+        ts_emb = torch.cat((start_tokens, ts_emb, ), dim=2)
+        ts_emb = torch.transpose(ts_emb, 1, 2)
+
+        ts_emb = self.transformer(ts_emb)
+        return ts_emb
+        
     # Freeze pre-trained backbone
     def freeze_backbone(self):
         for param in self.parameters():
             param.requires_grad = False
         self.out_linear.requires_grad = True
         self.start_token.requires_grad = True
+        self.protos.requires_grad = True
 
     # Global temporal pooling
     def gtpool(self, h, op):
@@ -117,8 +158,8 @@ class Transformer(nn.Module):
         return hs
 
     # Dynamic temporal pooling
-    # todo: proto 학습하고 가져와야함
     def dtpool(self, h, op):
+        # compute soft-DTW alignment
         A = self.softdtw.align(self.protos.repeat(h.shape[0], 1, 1), h)
         
         if op == 'avg':
@@ -132,10 +173,30 @@ class Transformer(nn.Module):
             h = h.max(dim=3)[0]
         return h
 
+    
+    # def compute_gradcam(self, x, labels):
+    #     def hook_func(grad):
+    #         self.h_grad = grad
+
+    #     h = self.get_htensor(x)
+    #     h.register_hook(hook_func)
+
+    #     out = self.forward(x)
+    #     scores = torch.gather(out, 1, labels.unsqueeze(dim=1))
+    #     scores.mean().backward()
+    #     gradcam = (h * self.h_grad).sum(dim=1, keepdim=True)
+
+    #     gradcam_min = torch.min(gradcam, dim=2, keepdim=True)[0]
+    #     gradcam_max = torch.max(gradcam, dim=2, keepdim=True)[0]
+    #     gradcam = (gradcam - gradcam_min) / (gradcam_max - gradcam_min)
+
+    #     A = self.softdtw.align(self.protos.unsqueeze(dim=0).repeat(h.shape[0], 1, 1), h).sum(dim=2)
+        
+    #     return gradcam, A
+
 
     def forward(self, ts, normalize=True, to_numpy=False, pool_op='avg'):
         device = self.dummy.device
-        is_projector = self.is_projector
         is_pos = self.is_pos
 
         ts = _normalize_t(ts, normalize)
@@ -148,8 +209,7 @@ class Transformer(nn.Module):
             ts_len = ts_emb.size()[2]
             if ts_len > self.max_len:
                 self.max_len = ts_len
-                self.pos_net = PositionalEncoding(
-                    n_dim, ts_len, dropout=dropout)
+                self.pos_net = PositionalEncoding(n_dim, ts_len, dropout=dropout)
                 self.pos_net.to(device)
             ts_emb = self.pos_net(ts_emb)
 
@@ -159,6 +219,7 @@ class Transformer(nn.Module):
         ts_emb = torch.transpose(ts_emb, 1, 2)
 
         ts_emb = self.transformer(ts_emb)
+        ts_emb_out = ts_emb.transpose(1, 2)
 
         if (self.aggregation_mode == 'class_token'):
             ts_emb = ts_emb[:, 0, :]
@@ -173,21 +234,30 @@ class Transformer(nn.Module):
                 ts_emb = ts_emb.reshape(ts_emb.size(0), -1)
                 ts_emb = self.linear_st(ts_emb)
             elif self.pooling_mode == 'dt':
-                ts_emb = self.dtpool(ts_emb, pool_op)
+                ts_emb = self.dtpool(ts_emb.transpose(1, 2), pool_op)
+                ts_emb = ts_emb.transpose(1, 2)
                 ts_emb = ts_emb.reshape(ts_emb.size(0), -1)
+                ts_emb = self.linear_st(ts_emb)
             else:
                 raise ValueError(f"Unsupported pool_type: {self.pooling_mode}")
         
         # Linear projection
-        ts_emb = self.out_linear(ts_emb)
+        # ts_emb = self.out_linear(ts_emb)
+        out = self.out_linear(ts_emb)
 
         if to_numpy:
-            return ts_emb.cpu().detach().numpy()
+            # return ts_emb.cpu().detach().numpy()
+            return out.cpu().detach().numpy(), ts_emb_out.cpu().detach().numpy()
         else:
-            return ts_emb
+            return out, ts_emb_out
+            # return ts_emb, out
 
     def encode(self, ts, normalize=True, to_numpy=False, pool_op='avg', pool_type='gt'):
         return self.forward(ts, normalize=normalize, to_numpy=to_numpy)
+    
+    def compute_aligncost(self, h):
+        cost = self.softdtw(self.protos.repeat(h.shape[0], 1, 1), h.detach())
+        return cost.mean() / h.shape[2]
 
 
 class PositionalEncoding(nn.Module):
