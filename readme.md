@@ -74,6 +74,11 @@ For high performance without large computations, the pre-trained backbone is fro
 
   - Already pre-trained and time-series is aggregated with class token, therefore, experiments setting has advantage for class token
 
+### Results
+
+<center><img src="https://github.com/hataehyeok/time_seriesFM/assets/105369662/3112678a-a527-45de-b3dc-2ac820c0ed61" width="50%" height="50%"/></center>
+<center><img src="https://github.com/hataehyeok/time_seriesFM/assets/105369662/8efa8062-9ac4-4a0f-a9cc-26e9bd12f528" width="50%" height="50%"/></center>
+
 ### Conclusions
 
 - In the freeze case, the flatten method was overfitting even though it had the most parameters, and this was improved by pooling
