@@ -12,13 +12,12 @@ __pycache__/
 /result
 /result_agg
 /result_agg_1
+/result_agg_2
 /model/*
 !/model/ucr_00_pretrain/
+# /engine/model/DTW-Pool/
 
 # Ignore log
 nohup.out
 log_*.txt
-
-
 *.csv
-/engine/model/DTW-Pool
