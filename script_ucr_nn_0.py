@@ -95,12 +95,9 @@ def main(data_config_name, method_name, dataset_order, is_freeze, aggregation_mo
         method_config_['n_class'] = dataset['n_class']
         method_config_['data_len'] = dataset['data_len']
         model = get_model(method_config_, aggregation_mode, pooling_mode)
-        nn_train(dataset, model, model_path,
-                 method_config_['train'], device, is_freeze=is_freeze)
-        nn_eval(dataset, model, model_path,
-                result_path, method_config_['train'], device)
-        get_agg_result(result_path, result_agg_path,
-                       method_config_['train'])
+        nn_train(dataset, model, model_path, method_config_['train'], device, is_freeze=is_freeze)
+        nn_eval(dataset, model, model_path, result_path, method_config_['train'], device)
+        get_agg_result(result_path, result_agg_path, method_config_['train'])
 
 
 if __name__ == '__main__':

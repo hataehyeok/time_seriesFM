@@ -76,15 +76,17 @@ def main():
         'trf_tc_c_0000_freeze_flatten_gt.npz',
         'trf_tc_c_0000_freeze_pooling_gt.npz',
         'trf_tc_c_0000_freeze_pooling_st.npz',
+        'trf_tc_c_0000_freeze_pooling_dt.npz',
         'trf_tc_c_0000_nofreeze_class_token_gt.npz',
         'trf_tc_c_0000_nofreeze_flatten_gt.npz',
         'trf_tc_c_0000_nofreeze_pooling_gt.npz',
-        'trf_tc_c_0000_nofreeze_pooling_st.npz'
+        'trf_tc_c_0000_nofreeze_pooling_st.npz',
+        'trf_tc_c_0000_nofreeze_pooling_dt.npz',
     ]
     
     print_dataset = True
     get_data_names = get_ucr_data_names
-    print_table_to_csv(method_names, 'ucr_00', get_data_names, 'test2.csv', print_dataset=print_dataset)
+    print_table_to_csv(method_names, 'ucr_00', get_data_names, 'test_dt_seg_9.csv', print_dataset=print_dataset)
 
 
 if __name__ == '__main__':
